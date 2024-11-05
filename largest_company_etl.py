@@ -7,6 +7,7 @@ import sqlite3
 from datetime import datetime
 import re
 import numpy as np
+
 #Data used for the project
 url = "https://www.idntimes.com/business/economy/trio-hamdani/lengkap-ini-daftar-100-perusahaan-terbesar-di-indonesia?page=all"
 table_attribs = ["No", "Company Name", "Revenue in Rupiah"]
@@ -21,7 +22,8 @@ def log_progress(message):
     timestamp = now.strftime(timestamp_format)
     with open("./code_log.txt", "a") as f:
         f.write(timestamp + ' : ' + message + '\n')
-
+        
+#Function to turn the revenue into integer
 def revenue_transform(revenue):
     parts = revenue.split('.')
     if len(parts) < 3:
@@ -39,7 +41,7 @@ def extract_data(url, table_attribs):
     df = pd.DataFrame(columns=table_attribs)
     name_of_data = 'split-page split-page1 open has-keypoint'
     div_content = data.find('div', class_=name_of_data)
-
+    #The data used is wraped in a div with a class of 'split-page split-page1 open has-keypoint'
     if div_content:
         paragraphs = div_content.find_all('p')
         for p in paragraphs:
@@ -47,12 +49,8 @@ def extract_data(url, table_attribs):
             if text.startswith("Berikut daftar"):
                 continue
     bagian = text.split('.000')
-#bagian.remove('')
+    #Due to the text is not in a table and there is no separator, the .000 will be use as the seperator
     bagian_baru = list(filter(None, bagian))
-# Menampilkan hasil
-#print(text)
-
-# Memproses data menjadi dataframe
     data = []
     for perusahaan in bagian_baru:
         match = re.match(r"(\d+)\.\s(.+)\sdengan pendapatan\sRp([\d\.]+)", perusahaan)
@@ -61,11 +59,8 @@ def extract_data(url, table_attribs):
             nama = match.group(2)
             pendapatan = revenue_transform(match.group(3))
             data.append([nomor, nama, pendapatan])
-
-# Membuat dataframe
     df = pd.DataFrame(data, columns=table_attribs)
     return df
-# Menampilkan dataframe
 
 
 #Transform
@@ -73,18 +68,20 @@ def transform(df):
     df['Revenue in USD'] = [np.round(x / 15735, 2) for x in df['Revenue in Rupiah']]
     return df
 
+#Load
 def load_to_csv(df, csv_path):
     df.to_csv(csv_path)
 
 def load_to_db(df, sql_connection, table_name):
     df.to_sql(table_name, sql_connection, if_exists = 'replace', index=False)
 
+#SQL query
 def run_query(query_statement, sql_connection):
     print(query_statement)
     query_output = pd.read_sql(query_statement, sql_connection)
     print(query_output)
 
-
+#ETL process start
 log_progress('Preliminaries complete. Initiating ETL process')
 
 df = extract_data(url, table_attribs)
@@ -116,3 +113,4 @@ log_progress('Process Complete')
 sql_connection.close()
 
 log_progress('Server Connection closed')
+#ETL process finished
